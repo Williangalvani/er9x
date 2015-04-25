@@ -10136,7 +10136,8 @@ Str_DiagAna
 			subN += 1 ;
 #endif			
 
-#if defined(CPUM128) || defined(CPUM2561)
+#if 0 
+//defined(CPUM128) || defined(CPUM2561)
 			b = g_eeGeneral.FrskyPins ;
 			c = onoffMenuItem_g( b, y, PSTR(STR_FRSKY_MOD), sub==subN ) ;
 			g_eeGeneral.FrskyPins = c ;
