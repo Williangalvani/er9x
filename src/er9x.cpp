@@ -3051,13 +3051,18 @@ int main(void)
 {
 
     DDRA = 0xff;  PORTA = 0x00;
-    DDRB = 0x81;  PORTB = 0x7e; //pullups keys+nc
+    //DDRB = 0x81;  PORTB = 0x7e; //pullups keys+nc
     DDRC = 0x3e;  PORTC = 0xc1; //pullups nc
     DDRD = 0x00;  PORTD = 0xff; //all D inputs pullups keys
     DDRE = 0x08;  PORTE = 0xff-(1<<OUT_E_BUZZER); //pullups + buzzer 0
     DDRF = 0x00;  PORTF = 0x00; //all F inputs anain - pullups are off
     //DDRG = 0x10;  PORTG = 0xff; //pullups + SIM_CTL=1 = phonejack = ppm_in
     DDRG = 0x14; PORTG = 0xfB; //pullups + SIM_CTL=1 = phonejack = ppm_in, Haptic output and off (0)
+
+
+  sei();
+  DDRA = 0xFF;
+  PORTA = 0xFF;
 
 #ifdef CPUM2561
   uint8_t mcusr = MCUSR; // save the WDT (etc) flags
@@ -3225,7 +3230,7 @@ int main(void)
 		} 
 //		bootmain() ;
 #ifdef CPUM128
-		((void (*)(void)) (0xFFFE))() ;	// Goes to 0x1FFFC
+	//	((void (*)(void)) (0xFFFE))() ;	// Goes to 0x1FFFC
 #else	
 		((void (*)(void)) (0x7FFE))() ;	// Goes to 0xFFFC
 #endif
@@ -3331,7 +3336,12 @@ int main(void)
         //uint16_t old10ms=get_tmr10ms();
         mainSequence() ;
     }
+    return 0;
 }
+
+
+
+/////////////////////////////END OF MAIN ///////////////////////////////////////////////
 
 #ifdef FRSKY
 extern int16_t AltOffset ;
@@ -4369,3 +4379,14 @@ int16_t calc100toRESX(int8_t x)
 }
 
 
+
+
+
+
+
+
+
+
+
+
+/////////////////////////////END OF MAIN ///////////////////////////////////////////////

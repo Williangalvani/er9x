@@ -83,7 +83,7 @@ echo "===== Making 128 Version ====="
 echo ">>> cleaning"
 make clean
 echo ">>>  making"
-make CPU=128  PHASES=YES
+make CPU=128  PHASES=YES CUSTOM9X=YES
 echo ">>>  moving"
 mv er9x.hex ../er9x-128.hex
 

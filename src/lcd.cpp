@@ -23,10 +23,6 @@ extern struct t_rotary Rotary ;
 
 #define DBL_FONT_SMALL	1
 
-#ifdef SIMU
-bool lcd_refresh = true;
-uint8_t lcd_buf[DISPLAY_W*DISPLAY_H/8];
-#endif
 
 uint8_t lcd_lastPos;
 
@@ -96,8 +92,8 @@ void lcd_img(uint8_t i_x,uint8_t i_y,const prog_uchar * imgdat,uint8_t idx/*,uin
 
   uint8_t w    = pgm_read_byte(q++);
   uint8_t hb   = pgm_read_byte(q++) ;
-	hb += 7 ;
-	hb /= 8 ;
+  hb += 7 ;
+  hb /= 8 ;
   uint8_t sze1 = pgm_read_byte(q++);
   q += idx*sze1;
 //  bool    inv  = (mode & INVERS) ? true : (mode & BLINK ? BLINK_ON_PHASE : false);
@@ -111,6 +107,7 @@ void lcd_img(uint8_t i_x,uint8_t i_y,const prog_uchar * imgdat,uint8_t idx/*,uin
   }
 }
 
+
 uint8_t lcd_putc(uint8_t x,uint8_t y,const char c )
 {
   return lcd_putcAtt(x,y,c,0);
@@ -122,7 +119,7 @@ uint8_t lcd_putcAtt(uint8_t x,uint8_t y,const char c,uint8_t mode)
 #if (DISPLAY_W==128)
   uint8_t *p  = &displayBuf[ (y & 0xF8) * 16 + x ];
 #else  
-	uint8_t *p  = &displayBuf[ y / 8 * DISPLAY_W + x ];
+	prog_uint8_t *p  = &displayBuf[ y / 8 * DISPLAY_W + x ];
 #endif
     //uint8_t *pmax = &displayBuf[ DISPLAY_H/8 * DISPLAY_W ];
 		if ( c < 22 )		// Move to specific x position (c)*FW
@@ -546,16 +543,6 @@ uint8_t plotType = PLOT_XOR ;
 
 void lcd_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h )
 {
-	uint8_t oldPlotType = plotType ;
-	plotType = PLOT_BLACK ;
-  lcd_vline(x, y, h ) ;
-	if ( w > 1 )
-	{
-  	lcd_vline(x+w-1, y, h ) ;
-	}
- 	lcd_hline(x+1, y+h-1, w-2 ) ;
- 	lcd_hline(x+1, y, w-2 ) ;
-	plotType = oldPlotType ;
 }
 
 
@@ -578,708 +565,360 @@ void lcd_write_bits( uint8_t *p, uint8_t mask )
 
 void lcd_plot(uint8_t x,uint8_t y)
 {
-#if (DISPLAY_W==128)
-  uint8_t *p  = &displayBuf[ (y & 0xF8) * 16 + x ];
-#else  
-	uint8_t *p  = &displayBuf[ y / 8 * DISPLAY_W + x ];
-#endif
-	lcd_write_bits( p, XBITMASK(y%8) ) ;
 }
 
 void lcd_hlineStip(unsigned char x,unsigned char y, signed char w,uint8_t pat)
 {
-  if(w<0) {x+=w; w=-w;}
-#if (DISPLAY_W==128)
-  uint8_t *p  = &displayBuf[ (y & 0xF8) * 16 + x ];
-#else  
-	uint8_t *p  = &displayBuf[ y / 8 * DISPLAY_W + x ];
-#endif
-  uint8_t msk = XBITMASK(y%8);
-  while(w){
-    if ( p>=DISPLAY_END)
-    {
-      break ;			
-    }
-    if(pat&1) {
-			lcd_write_bits( p, msk ) ;
-      pat = (pat >> 1) | 0x80;
-    }else{
-      pat = pat >> 1;
-    }
-    w--;
-    p++;
-  }
 }
 
 void lcd_hline(uint8_t x,uint8_t y, int8_t w)
 {
-  lcd_hlineStip(x,y,w,0xff);
 }
 
 void lcd_vline(uint8_t x,uint8_t y, int8_t h)
 {
-//    while ((y+h)>=DISPLAY_H) h--;
-  if (h<0) { y+=h; h=-h; }
-#if (DISPLAY_W==128)
-  uint8_t *p  = &displayBuf[ (y & 0xF8) * 16 + x ];
-#else  
-	uint8_t *p  = &displayBuf[ y / 8 * DISPLAY_W + x ];
-#endif
-  y &= 0x07 ;
-	if ( y )
-	{
-    uint8_t msk = ~(XBITMASK(y)-1) ;
-    h -= 8-y ;
-    if (h < 0)
-      msk -= ~(XBITMASK(8+h)-1) ;
-		lcd_write_bits( p, msk ) ;
-    p += DISPLAY_W ;
-	}
-    
-  while( h >= 8 )
-	{
-		h -= 8 ;
-		lcd_write_bits( p, 0xFF ) ;
-    p += DISPLAY_W ;
-  }
-    
-	if ( h > 0 )
-	{
-  	lcd_write_bits( p, (XBITMASK(h)-1) ) ;
-	}
-	asm("") ;
+
 }
 
 uint8_t EepromActive ;
 
 void lcdSetContrast()
 {
-	lcdSetRefVolt(g_eeGeneral.contrast);
+//	lcdSetRefVolt(g_eeGeneral.contrast);
 }
 
-#if LCD_OTHER   // defined @er9x.h
+void lcdSetRefVolt(uint8_t val)
+{
+}
 
-// Supports 4W serial LCD interface and SSD1306 OLED controller
-// - Hyun-Taek Chang (flybabo@att.net), Feb 2013
 
-// force inline expansion
-#define ALWAYS_INLINE   __attribute__((always_inline))
+#define BIT(x) (1 << (x))
+#define SETBITS(x,y) ((x) |= (y))
+#define CLEARBITS(x,y) ((x) &= (~(y)))
+#define SET_BIT(x,y) SETBITS((x), (BIT((y))))
+#define CLEAR_BIT(x,y) CLEARBITS((x), (BIT((y))))
+#define BITSET(x,y) ((x) & (BIT(y)))
+#define BITCLEAR(x,y) !BITSET((x), (y))
+#define BITSSET(x,y) (((x) & (y)) == (y))
+#define BITSCLEAR(x,y) (((x) & (y)) == 0)
+#define BITVAL(x,y) (((x)>>(y)) & 1)
 
-// to select either stock LCD controller or SSD1306 OLED controller
-#define _SSD1306         0       // Stock(ST7565/NT7532)=0, _SSD1306=1
-
-// controller independent options
-#define SERIAL_LCD      0       // parallel=0, 4W_serial=1
-#define ROTATE_SCREEN   0       // don't-rotate-screen=0, rotate-180-degree=1
-#define	REVERSE_VIDEO   0       // normal-video=0, reverse-video=1
 
 volatile uint8_t LcdLock ;
 
-#define delay_1us() _delay_us(1)
-#define delay_2us() _delay_us(2)
-static void delay_1_5us(int ms)
+
+//////////////////////////////////SPI CONFIG //////////////////////////////////////
+void spi_init(void)
 {
-  for(int i=0; i<ms; i++) delay_1us();
+
+  SET_BIT(SPSR,SPI2X);
+  SET_BIT(SPCR,0);
+  SET_BIT(SPCR,1);
+  DDRB =  (1<<DDB4)|(1<<DDB5)|(1<<DDB6);
+  /* Set MOSI and SCK output, all others input */
+  DDRB |= (1<<DD_MOSI)|(1<<DD_SCK);
+  /* Enable SPI, Master, set clock rate fck/16 */
+  SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR0);
+  PORTB = 0;
 }
 
-#if (SERIAL_LCD || LCD_EEPE)  // LCD_EEPE defined @er9x.h
-// Serial LCD module's SCLK(clock) and SI(data) must be connected
-// to Atmega's PC4 and PC5, respectively.
-#define OUT_C_LCD_SCL OUT_C_LCD_RnW     // PC4
-#define OUT_C_LCD_SI  OUT_C_LCD_E       // PC5
-
-static void lcdSendBit(uint8_t b, uint8_t v0, uint8_t v1) ALWAYS_INLINE;
-static void lcdSend8bits(uint8_t val, uint8_t v0, uint8_t v1) ALWAYS_INLINE;
-static void lcdSendDataBits(uint8_t *p, uint8_t COLUMN_START_LO) ALWAYS_INLINE;
-
-// NOTE: ST7565 SCLK min period is 50ns (100ns?)
-// single bit write takes 5 cycles = 312.5ns @16MHz clock
-static void lcdSendBit(uint8_t b, uint8_t v0, uint8_t v1)
+void spi_write(char cData)
 {
-  PORTC_LCD_CTRL = v0;                  // out 0x15, r19  ; 1 cycle
-  if (b != 0)                           // sbrc r24, 7    ; 1 cycle
-    PORTC_LCD_CTRL = v1;                // out 0x15, r18  ; 1 cycle
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_SCL); // sbi 0x15, 4    ; 2 cycles
+  /* Start transmission */
+  SPDR = cData;
+  /* Wait for transmission complete */
+  while(!(SPSR & (1<<SPIF)));
 }
 
-static void lcdSend8bits(uint8_t val, uint8_t v0, uint8_t v1)
-{
-  lcdSendBit((val & 0x80), v0, v1);
-  lcdSendBit((val & 0x40), v0, v1);
-  lcdSendBit((val & 0x20), v0, v1);
-  lcdSendBit((val & 0x10), v0, v1);
-  lcdSendBit((val & 0x08), v0, v1);
-  lcdSendBit((val & 0x04), v0, v1);
-  lcdSendBit((val & 0x02), v0, v1);
-  lcdSendBit((val & 0x01), v0, v1);
+
+/////////////////////////////////////// SEND COMMAND OR DATA ////////////////////////////////////////////
+void writecommand(uint8_t c) {
+  CLEAR_BIT(PORTB, lcd_dc);
+  //digitalWrite(_dc, LOW);
+  CLEAR_BIT(PORTB, lcd_sclk);
+  //digitalWrite(_sclk, LOW);
+  CLEAR_BIT(PORTB, lcd_cs);
+  //digitalWrite(_cs, LOW);
+  spi_write(c);
+  SET_BIT(PORTB, lcd_cs);
+  //digitalWrite(_cs, HIGH);
 }
 
-static void lcdSendCtlBits(uint8_t val)
-{
-  uint8_t v0c = 0xC5; // PC7=1,PC6=1,SI=0,SCL=0,A0=0,RES=1,CS1=0,PC0=1
-  uint8_t v1c = 0xE5; // PC7=1,PC6=1,SI=1,SCL=0,A0=0,RES=1,CS1=0,PC0=1
-  for (uint8_t n = 8; n > 0; n--) {
-    lcdSendBit((val & 0x80), v0c, v1c);
-    val <<= 1;
-  }
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_CS1);   // disable chip select
+void writedata(uint8_t c) {
+  SET_BIT(PORTB, lcd_dc);
+  //digitalWrite(_dc, LOW);
+  CLEAR_BIT(PORTB, lcd_sclk);
+  //digitalWrite(_sclk, LOW);
+  CLEAR_BIT(PORTB, lcd_cs);
+  //digitalWrite(_cs, LOW);
+  spi_write(c);
+  SET_BIT(PORTB, lcd_cs);
+  //digitalWrite(_cs, HIGH);
 }
 
-static void lcdSendDataBits(uint8_t *p, uint8_t COLUMN_START_LO)
-{
-  uint8_t v0c = 0xC5; // PC7=1,PC6=1,SI=0,SCL=0,A0=0,RES=1,CS1=0,PC0=1
-  uint8_t v1c = 0xE5; // PC7=1,PC6=1,SI=1,SCL=0,A0=0,RES=1,CS1=0,PC0=1
-  uint8_t v0d = 0xCD; // PC7=1,PC6=1,SI=0,SCL=0,A0=1,RES=1,CS1=0,PC0=1
-  uint8_t v1d = 0xED; // PC7=1,PC6=1,SI=1,SCL=0,A0=1,RES=1,CS1=0,PC0=1
-  for(uint8_t y=0xB0; y < 0xB8; y++) {
-    lcdSend8bits(COLUMN_START_LO, v0c, v1c);
-    lcdSend8bits(0x10, v0c, v1c);  //column addr 0
-    lcdSend8bits(y, v0c, v1c);     //page addr y
+int _width;
+int _height;
+int rotation;
 
-    for(uint8_t x=32; x>0; x--){
-       lcdSend8bits(*p++, v0d, v1d);
-       lcdSend8bits(*p++, v0d, v1d);
-       lcdSend8bits(*p++, v0d, v1d);
-       lcdSend8bits(*p++, v0d, v1d);
+void setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
+
+  writecommand(ILI9340_CASET); // Column addr set
+  writedata(x0 >> 8);
+  writedata(x0 & 0xFF);     // XSTART 
+  writedata(x1 >> 8);
+  writedata(x1 & 0xFF);     // XEND
+
+  writecommand(ILI9340_PASET); // Row addr set
+  writedata(y0>>8);
+  writedata(y0);     // YSTART
+  writedata(y1>>8);
+  writedata(y1);     // YEND
+
+  writecommand(ILI9340_RAMWR); // write to RAM
+}
+
+// fill a rectangle
+void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+
+  // rudimentary clipping (drawChar w/big text requires this)
+  if((x >= _width) || (y >= _height)) return;
+  if((x + w - 1) >= _width)  w = _width  - x;
+  if((y + h - 1) >= _height) h = _height - y;
+
+  setAddrWindow(x, y, x+w-1, y+h-1);
+
+  uint8_t hi = color >> 8, lo = color;
+
+  SET_BIT(dcport, lcd_dc);
+  //digitalWrite(_dc, HIGH);
+  CLEAR_BIT(csport, lcd_cs);
+  //digitalWrite(_cs, LOW);
+
+  for(y=h; y>0; y--) {
+    for(x=w; x>0; x--) {
+      spi_write(hi);
+      spi_write(lo);
     }
   }
-}
-#endif // (SERIAL_LCD || LCD_EEPE)
-
-#if (!SERIAL_LCD || LCD_EEPE) // PARALLEL_LCD
-static void lcdSendByte(uint8_t val) ALWAYS_INLINE;
-static void lcdSendDataBytes(uint8_t *p, uint8_t COLUMN_START_LO) ALWAYS_INLINE;
-
-static void lcdSendByte(uint8_t val)
-{
-  PORTA_LCD_DAT = val;
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E);    // rise enable
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E);    // fall enable
+  //digitalWrite(_cs, HIGH);
+  SET_BIT(csport, lcd_cs);
 }
 
-static void lcdSendCtlByte(uint8_t val)
-{
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS1);  // enable chip select
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);  // enable write 
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_A0);   // set to control mode
-  lcdSendByte(val);
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_CS1);   // disable chip select
+void fillScreen(uint16_t color) {
+  fillRect(0, 0,  _width, _height, color);
 }
 
-static void lcdSendDataBytes(uint8_t *p, uint8_t COLUMN_START_LO)
-{
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS1);  // enable chip select
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);  // enable write 
-  for(uint8_t y=0xB0; y < 0xB8; y++) {
-    PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_A0); // switch to ctl send mode
 
-    lcdSendByte(COLUMN_START_LO);
-    lcdSendByte(0x10);  //column addr 0
-    lcdSendByte(y);     //page addr y
+void setRotation(uint8_t m) {
 
-    PORTC_LCD_CTRL |= (1<<OUT_C_LCD_A0);  // switch to data send mode
-
-    for(uint8_t x=32; x>0; x--){
-       lcdSendByte(*p++);
-       lcdSendByte(*p++);
-       lcdSendByte(*p++);
-       lcdSendByte(*p++);
-    }
+  writecommand(ILI9340_MADCTL);
+  rotation = m % 4; // can't be higher than 3
+  switch (rotation) {
+   case 0:
+     writedata(ILI9340_MADCTL_MX | ILI9340_MADCTL_BGR);
+     _width  = ILI9340_TFTWIDTH;
+     _height = ILI9340_TFTHEIGHT;
+     break;
+   case 1:
+     writedata(ILI9340_MADCTL_MV | ILI9340_MADCTL_BGR);
+     _width  = ILI9340_TFTHEIGHT;
+     _height = ILI9340_TFTWIDTH;
+     break;
+  case 2:
+    writedata(ILI9340_MADCTL_MY | ILI9340_MADCTL_BGR);
+     _width  = ILI9340_TFTWIDTH;
+     _height = ILI9340_TFTHEIGHT;
+    break;
+   case 3:
+     writedata(ILI9340_MADCTL_MV | ILI9340_MADCTL_MY | ILI9340_MADCTL_MX | ILI9340_MADCTL_BGR);
+     _width  = ILI9340_TFTHEIGHT;
+     _height = ILI9340_TFTWIDTH;
+     break;
   }
 }
-#endif // (!SERIAL_LCD || LCD_EEPE)
-
-#if !LCD_EEPE   // compile time LCD configuration
-
-#if (_SSD1306 || ROTATE_SCREEN)
-  #define COLUMN_START_LO 0x00
-#else  // ST7565
-  #define COLUMN_START_LO 0x04        // skip first 4 columns
-#endif
-
-#if SERIAL_LCD
-inline void lcdSendCtl(uint8_t val) { lcdSendCtlBits(val); }
-#else
-inline void lcdSendCtl(uint8_t val) { lcdSendCtlByte(val); }
-#endif
-
-const static prog_uchar APM Lcdinit[] =
-{
-#if _SSD1306
-  0xAE,         // DON = 0: display OFF
-  0xD5, 0x80,   // set display clock 100 frames/sec
-  0xA8, 0x3F,   // set multiplex ratio 1/64 duty
-  0xD3, 0x00,   // set display offset 0
-  0x8D, 0x14,   // enable embedded DC/DC conveter
-  0xD9, 0xF1,   // set precharge 15 clocks, discharge 1 clock
-  0xDA, 0x12,   // set COM pins hardware configuration
-  0xDB, 0x40,   // set VCOMH deselect level -undocumented
-# if ROTATE_SCREEN
-  0xA1,         // ADC = 1: reverse direction(SEG128->SEG1)
-  0xC8,         // SHL = 1: reverse direction (COM64->COM1)
-# else
-  0xA0,         // ADC = 0: normal direction(SEG1->SEG128)
-  0xC0,         // SHL = 0: normal direction (COM1->COM64)
-# endif
-#else  // !_SSD1306 == ST7565 (stock LCD controller)
-  0xE2,         // Initialize the internal functions
-  0xAE,         // DON = 0: display OFF
-  0xA4,         // Disable entire display-ON
-  0xA2,         // Select LCD bias=0
-  0x2F,         // Control power circuit operation VC=VR=VF=1
-  0x25,         // Select int resistance ratio R2 R1 R0 =5
-# if ROTATE_SCREEN
-  0xA0,         // ADC = 0: normal direction(SEG1->SEG132/SEG128)
-  0xC8,         // SHL = 1: reverse direction (COM64->COM1)
-# else
-  0xA1,         // ADC = 1: reverse direction(SEG132/SEG128->SEG1)
-  0xC0,         // SHL = 0: normal direction (COM1->COM64)
-# endif
-#endif // _SSD1306
-#if REVERSE_VIDEO
-  0xA7,         // REV = 1: reverse display
-#else
-  0xA6,         // REV = 0: normal display
-#endif
-  0xAF          // DON = 1: display ON
-};	
 
 
-void lcd_init()
-{
-  LcdLock = 1 ;            // Lock LCD data lines
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RES);  //LCD_RES
-  delay_2us();
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RES);
-  delay_1_5us(1500);
-  for (uint8_t i = 0; i < sizeof(Lcdinit); i++) {
-    lcdSendCtl(pgm_read_byte(&Lcdinit[i]));
-  }
-  lcdSetContrast();
-//  LcdLock = 0 ;            // Free LCD data lines
-}
-
-void lcdSetRefVolt(uint8_t val)
-{
-  LcdLock = 1 ;            // Lock LCD data lines
-  lcdSendCtl(0x81);
-#if _SSD1306
-  lcdSendCtl((val << 2) + 3);  // [3-255]
-#else
-  lcdSendCtl(val);             // [0-63]
-#endif
-  LcdLock = 0 ;            // Free LCD data lines
-}
-
-void refreshDiplay()
-{
-	if ( EepromActive && BLINK_ON_PHASE )
-	{
-		lcd_hline( 0, 0, EepromActive - '0' + 6 ) ;
-	}
-#ifdef SIMU
-  memcpy(lcd_buf, displayBuf, sizeof(displayBuf));
-  lcd_refresh = true;
-
-#else
-  LcdLock = 1 ;             // Lock LCD data lines
-  uint8_t *p = displayBuf;
-#if SERIAL_LCD
-  lcdSendDataBits(p, COLUMN_START_LO);
-#else
-  lcdSendDataBytes(p, COLUMN_START_LO);
-#endif
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_CS1);   // disable chip select
-  LcdLock = 0 ;            // Free LCD data lines
-#endif
-}
-
-#else		// LCD_EEPE: configurable LCD driver
-
-static uint8_t Lcdinit[] =
-{
-  0xE2,         // Initialize the internal functions
-  0xAE,         // DON = 0: display OFF
-  0xA4,         // Disable entire display-ON
-  0xA2,         // Select LCD bias=0
-  0x2F,         // Control power circuit operation VC=VR=VF=1
-  0x25          // Select int resistance ratio R2 R1 R0 =5
-};
-
-static uint8_t SSD1306init[] =
-{
-  0xAE,         // DON = 0: display OFF
-  0xD5, 0x80,   // set display clock 100 frames/sec
-  0xA8, 0x3F,   // set multiplex ratio 1/64 duty
-  0xD3, 0x00,   // set display offset 0
-  0x8D, 0x14,   // enable embedded DC/DC conveter
-  0xD9, 0xF1,   // set precharge 15 clocks, discharge 1 clock
-  0xDA, 0x12,   // set COM pins hardware configuration
-  0xDB, 0x40    // set VCOMH deselect level -undocumented
-};
-
-static void (*lcdSendCtl)(uint8_t val);	// function pointer
-
-static void lcdSendCtl2(uint8_t c1, uint8_t c2)
-{
-  lcdSendCtl(c1);
-  lcdSendCtl(c2);
-}
-
-void lcd_init()
-{
-  LcdLock = 1 ;                 // Lock LCD data lines
-  lcdSendCtl = lcdSendCtlByte;  // initialize lcdSendCtl function pointer
-  if (g_eeGeneral.serialLCD)
-    lcdSendCtl = lcdSendCtlBits;
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RES);  //LCD_RES
-  delay_2us();
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RES);
-  delay_1_5us(1500);
-  if (g_eeGeneral.SSD1306) {
-    for (uint8_t i = 0; i < sizeof(SSD1306init); i++) {
-      lcdSendCtl(SSD1306init[i]);
-    }
-    if (g_eeGeneral.rotateScreen) {
-      lcdSendCtl2(0xA1, 0xC8);  // ADC = 1: reverse direction(SEG128->SEG1)
-    } else {                    // SHL = 1: reverse direction(COM64->COM1)
-      lcdSendCtl2(0xA0, 0xC0);  // ADC = 0: normal direction(SEG1->SEG128)
-    }                           // SHL = 0: normal direction(COM1->COM64)
-  } else {
-    for (uint8_t i = 0; i < sizeof(Lcdinit); i++) {
-      lcdSendCtl(Lcdinit[i]);
-    }
-    if (g_eeGeneral.rotateScreen) {
-      lcdSendCtl2(0xA0, 0xC8);  // ADC = 0: norm direction(SEG1->SEG132/SEG128)
-    } else {                    // SHL = 1: rev direction(COM64->COM1)
-      lcdSendCtl2(0xA1, 0xC0);  // ADC = 1: rev direction(SEG132/SEG128->SEG1)
-    }                           // SHL = 0: norm direction(COM1->COM64)
-  }
-#if REVERSE_VIDEO
-  lcdSendCtl2(0xA7, 0xAF);      // REV = 1: reverse display, DON = 1: display ON
-#else
-  lcdSendCtl2(0xA6, 0xAF);      // REV = 0: normal display, DON = 1: display ON
-#endif
-  lcdSetContrast();
-//  LcdLock = 0 ;                 // Free LCD data lines
-}
-
-void lcdSetRefVolt(uint8_t val)
-{
-  LcdLock = 1 ;           // Lock LCD data lines
-  lcdSendCtl(0x81);
-  if (g_eeGeneral.SSD1306) {
-    lcdSendCtl((val << 2) + 3);  // [3-255]
-  } else {
-    lcdSendCtl(val);             // [1-63]
-  }
-  LcdLock = 0 ;           // Free LCD data lines
-}
-
-void refreshDiplay()
-{
-	if ( EepromActive && BLINK_ON_PHASE )
-	{
-		lcd_hline( 0, 0, EepromActive - '0' + 6 ) ;
-	}
-#ifdef SIMU
-  memcpy(lcd_buf, displayBuf, sizeof(displayBuf));
-  lcd_refresh = true;
-
-#else
-  LcdLock = 1 ;            		// Lock LCD data lines
-  uint8_t column_start_lo = 0x04; // skip first 4 columns for normal ST7565
-  if (g_eeGeneral.rotateScreen || g_eeGeneral.SSD1306)
-    column_start_lo = 0x00;       // don't skip if SSD1306 or screen rotated
-  uint8_t *p = displayBuf;
-  if (g_eeGeneral.serialLCD) {
-    lcdSendDataBits(p, column_start_lo);
-  } else {
-    lcdSendDataBytes(p, column_start_lo);
-  }
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_CS1);    // disable chip select
-  LcdLock = 0 ;            // Free LCD data lines
-#endif
-}
-
-#endif	// !LCD_EEPE
-
-
-#else	// !defined(LCD_OTHER)
-
-
-#ifndef LCD_2_CS
-void lcdSendCtl(uint8_t val)
-{
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS1);
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_A0);
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);
-  PORTA_LCD_DAT = val;
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E);
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E);
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_A0);
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS1);
-}
-
-
-#define delay_1us() _delay_us(1)
-#define delay_2us() _delay_us(2)
-static void delay_1_5us( uint16_t ms)
-{
-  for( uint16_t i=0; i<ms; i++) delay_1us();
-}
-
-const static prog_uchar APM Lcdinit[] =
-{
-#if defined(CPUM128) || defined(CPUM2561)
-  0xE2, 0xAE, 0xA6, 0xA4, 0xA2, 0x2F, 0x25
-#else
-  0xE2, 0xAE, 0xA1, 0xA6, 0xA4, 0xA2, 0xC0, 0x2F, 0x25, 0xAF
-#endif
-} ;	
-
-
-void lcd_init()
-{
-  // /home/thus/txt/datasheets/lcd/KS0713.pdf
-  // ~/txt/flieger/ST7565RV17.pdf  from http://www.glyn.de/content.asp?wdid=132&sid=
-	uint8_t i ;
-
-	LcdLock = 1 ;						// Lock LCD data lines
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RES);  //LCD_RES
-  delay_2us();
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RES); //  f524  sbi 0x15, 2 IOADR-PORTC_LCD_CTRL; 21           1
-  delay_1_5us(1500);
-	for ( i = 0 ; i < sizeof(Lcdinit) ; i += 1 )
-	{
-	  lcdSendCtl(pgm_read_byte(&Lcdinit[i]) ) ;
-	}
-#if defined(CPUM128) || defined(CPUM2561)
-  if (g_eeGeneral.rotateScreen) {
-    lcdSendCtl(0xA0);     // ADC = 0: norm direction(SEG1->SEG132/SEG128)
-    lcdSendCtl(0xC8);     // SHL = 1: rev direction(COM64->COM1)
-  } else {
-    lcdSendCtl(0xA1);     // ADC = 1: rev direction(SEG132/SEG128->SEG1)
-    lcdSendCtl(0xC0);     // SHL = 0: norm direction(COM1->COM64)
-  }
-  lcdSendCtl(0xAF);       // turn-on display
-#endif
-	lcdSetContrast() ;
-//	LcdLock = 0 ;						// Free LCD data lines
-
-}
-
-
-void lcdSetRefVolt(uint8_t val)
-{
-	LcdLock = 1 ;						// Lock LCD data lines
-  lcdSendCtl(0x81);
-  lcdSendCtl(val);
-	LcdLock = 0 ;						// Free LCD data lines
-}
-
-volatile uint8_t LcdLock ;
-//volatile uint8_t LcdTrims ;
-//uint8_t LcdTrimSwapped ;
 
 
 void refreshDiplay()
 {
-//	lcd_putc( 20*FW, 0, RotaryState + 'A' ) ;
-//	lcd_putc( 19*FW, 0, s_editMode + '0' ) ;
-	if ( EepromActive && BLINK_ON_PHASE )
-	{
-		lcd_hline( 0, 0, EepromActive - '0' + 6 ) ;
-	}
-#ifdef SIMU
-  memcpy(lcd_buf, displayBuf, sizeof(displayBuf));
-  lcd_refresh = true;
-#else
+//  int color = ILI9340_BLACK;
+//  uint8_t hi = color >> 8, lo = color;
+  uint8_t blackhi = ILI9340_BLACK >> 8, blacklo = ILI9340_BLACK;
+  uint8_t whitehi = ILI9340_WHITE >> 8, whitelo = ILI9340_WHITE;
+  uint8_t x=0,y=0,w=128,h=54;
+ 
+  setAddrWindow(x, y, x+w*2-1, y+2*h-1);
 
-	LcdLock = 1 ;						// Lock LCD data lines
-  uint8_t column_start_lo = 0x04; // skip first 4 columns for normal ST7565
-#if defined(CPUM128) || defined(CPUM2561)
-  if (g_eeGeneral.rotateScreen)
-    column_start_lo = 0x00;       // don't skip if screen is rotated
-#endif
-  uint8_t *p=displayBuf;
-  for(uint8_t y=0xB0; y < 0xB8; y++) {
-    lcdSendCtl(column_start_lo);
-    lcdSendCtl(0x10); //column addr 0
-    lcdSendCtl( y ); //page addr y
-    
-		PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS1);
-    PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_A0);
-    PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);
-		
-    for(uint8_t x=32; x>0; x--){
-//      lcdSendDat(*p);
-      PORTA_LCD_DAT = *p++;
-      PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E);
-      PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E);
-      PORTA_LCD_DAT = *p++;
-      PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E);
-      PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E);
-      PORTA_LCD_DAT = *p++;
-      PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E);
-      PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E);
-      PORTA_LCD_DAT = *p++;
-      PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E);
-      PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E);
-//      p++;
+  SET_BIT(dcport, lcd_dc);
+  //digitalWrite(_dc, HIGH);
+  CLEAR_BIT(csport, lcd_cs);
+  //digitalWrite(_cs, LOW);
+
+  for(y=2*h; y>0; y--) {
+    for(x=w; x>0; x--) {
+      int16_t index = x + w * (y/16) ;
+      uint8_t bit = (y/2)%8;
+      if(BITVAL(displayBuf[index],bit))
+      {
+        spi_write(blackhi);
+        spi_write(blacklo);
+        spi_write(blackhi);
+        spi_write(blacklo);
+      }
+      else{
+        spi_write(whitehi);
+        spi_write(whitelo);
+        spi_write(whitehi);
+        spi_write(whitelo);
+        
+      }
     }
-    PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_A0);
-    PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS1);
   }
-	LcdLock = 0 ;						// Free LCD data lines
-#endif
-}
-#endif
-
-#ifdef LCD_2_CS
-uint8_t toggle_e()
-{
-  uint8_t value ;
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_E) ;
-  asm("rjmp .+0") ;
-  asm("rjmp .+0") ;
-  asm("nop") ;
-  value = PINA ;
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_E) ;
-  return value ;
-}
-
-
-#define delay_1us() _delay_us(1)
-void delay_1_5us(int ms)
-{
-  for(int i=0; i<ms; i++) delay_1us();
-}
-
-#define OUT_C_LCD_CS2   0
-
-static void lcdSendCtl(uint8_t val)
-{
-  uint8_t busy ;
-
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS1);
-
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RnW) ;    // read
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_A0);
-  DDRA = 0 ;
-  do
-  {
-    busy = toggle_e() ;
-  } while ( busy & 0x80 ) ;
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);
-  DDRA = 0xFF ;
-  PORTA_LCD_DAT = val;
-  toggle_e() ;
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS1);
-
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS2);
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RnW) ;    // read
-  DDRA = 0 ;
-  do
-  {
-    busy = toggle_e() ;
-  } while ( busy & 0x80 ) ;
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);
-  DDRA = 0xFF ;
-  PORTA_LCD_DAT = val;
-  toggle_e() ;
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS2);
-
-}
-
-
-uint8_t Hpos ;
-
-static void lcdSendDat(uint8_t val)
-{
-  uint8_t busy ;
-
-  if ( Hpos )
-  {
-    PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS1) ;
+  //digitalWrite(_cs, HIGH);
+  SET_BIT(csport, lcd_cs);
   }
-  else
-  {
-    PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_CS2) ;
-  }
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RnW) ;    // read
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_A0);
-  DDRA = 0 ;
-  do
-  {
-    busy = toggle_e() ;
-  } while ( busy & 0x80 ) ;
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RnW);
-  DDRA = 0xFF ;
-  PORTA_LCD_DAT = val;
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_A0);
-  toggle_e() ;
 
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS1);
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS2);
-}
 
 
 void lcd_init()
 {
-  // /home/thus/txt/datasheets/lcd/KS0713.pdf
-  // ~/txt/flieger/ST7565RV17.pdf  from http://www.glyn.de/content.asp?wdid=132&sid=
+  spi_init();
+    CLEAR_BIT(clkport, lcd_sclk);
 
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS1);
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_CS2);
-  PORTC_LCD_CTRL |=  (1<<OUT_C_LCD_A0);
-  PORTC_LCD_CTRL &= ~(1<<OUT_C_LCD_RES);  //LCD_RES
-  delay_1us();
-  delay_1us();//    f520  call  0xf4ce  delay_1us() ; 0x0xf4ce
-  PORTC_LCD_CTRL |= (1<<OUT_C_LCD_RES); //  f524  sbi 0x15, 2 IOADR-PORTC_LCD_CTRL; 21           1
+  // toggle RST low to reset
 
-  lcdSendCtl(0xC0); //
-  lcdSendCtl(0x3F); //DON = 1: display ON
 
-  lcdSetRefVolt(g_eeGeneral.contrast);
+  SET_BIT(PORTB, lcd_rst);
+  _delay_ms(5);
+  CLEAR_BIT(PORTB, lcd_rst);
+  _delay_ms(20);
+  SET_BIT(PORTB, lcd_rst);
+  _delay_ms(150);
+
+  /*
+  uint8_t x = readcommand8(ILI9340_RDMODE);
+  Serial.print("\nDisplay Power Mode: 0x"); Serial.println(x, HEX);
+  x = readcommand8(ILI9340_RDMADCTL);
+  Serial.print("\nMADCTL Mode: 0x"); Serial.println(x, HEX);
+  x = readcommand8(ILI9340_RDPIXFMT);
+  Serial.print("\nPixel Format: 0x"); Serial.println(x, HEX);
+  x = readcommand8(ILI9340_RDIMGFMT);
+  Serial.print("\nImage Format: 0x"); Serial.println(x, HEX);
+  x = readcommand8(ILI9340_RDSELFDIAG);
+  Serial.print("\nSelf Diagnostic: 0x"); Serial.println(x, HEX);
+  */
+
+  //if(cmdList) commandList(cmdList);
+  
+  writecommand(0xEF);
+  writedata(0x03);
+  writedata(0x80);
+  writedata(0x02);
+
+  writecommand(0xCF);  
+  writedata(0x00); 
+  writedata(0XC1); 
+  writedata(0X30); 
+
+  writecommand(0xED);  
+  writedata(0x64); 
+  writedata(0x03); 
+  writedata(0X12); 
+  writedata(0X81); 
+ 
+  writecommand(0xE8);  
+  writedata(0x85); 
+  writedata(0x00); 
+  writedata(0x78); 
+
+  writecommand(0xCB);  
+  writedata(0x39); 
+  writedata(0x2C); 
+  writedata(0x00); 
+  writedata(0x34); 
+  writedata(0x02); 
+ 
+  writecommand(0xF7);  
+  writedata(0x20); 
+
+  writecommand(0xEA);  
+  writedata(0x00); 
+  writedata(0x00); 
+ 
+  writecommand(ILI9340_PWCTR1);    //Power control 
+  writedata(0x23);   //VRH[5:0] 
+ 
+  writecommand(ILI9340_PWCTR2);    //Power control 
+  writedata(0x10);   //SAP[2:0];BT[3:0] 
+ 
+  writecommand(ILI9340_VMCTR1);    //VCM control 
+  writedata(0x3e); //�Աȶȵ���
+  writedata(0x28); 
+  
+  writecommand(ILI9340_VMCTR2);    //VCM control2 
+  writedata(0x86);  //--
+ 
+  writecommand(ILI9340_MADCTL);    // Memory Access Control 
+  writedata(ILI9340_MADCTL_MX | ILI9340_MADCTL_BGR);
+
+  writecommand(ILI9340_PIXFMT);    
+  writedata(0x55); 
+  
+  writecommand(ILI9340_FRMCTR1);    
+  writedata(0x00);  
+  writedata(0x18); 
+ 
+  writecommand(ILI9340_DFUNCTR);    // Display Function Control 
+  writedata(0x08); 
+  writedata(0x82);
+  writedata(0x27);  
+ 
+  writecommand(0xF2);    // 3Gamma Function Disable 
+  writedata(0x00); 
+ 
+  writecommand(ILI9340_GAMMASET);    //Gamma curve selected 
+  writedata(0x01); 
+ 
+  writecommand(ILI9340_GMCTRP1);    //Set Gamma 
+  writedata(0x0F); 
+  writedata(0x31); 
+  writedata(0x2B); 
+  writedata(0x0C); 
+  writedata(0x0E); 
+  writedata(0x08); 
+  writedata(0x4E); 
+  writedata(0xF1); 
+  writedata(0x37); 
+  writedata(0x07); 
+  writedata(0x10); 
+  writedata(0x03); 
+  writedata(0x0E); 
+  writedata(0x09); 
+  writedata(0x00); 
+  
+  writecommand(ILI9340_GMCTRN1);    //Set Gamma 
+  writedata(0x00); 
+  writedata(0x0E); 
+  writedata(0x14); 
+  writedata(0x03); 
+  writedata(0x11); 
+  writedata(0x07); 
+  writedata(0x31); 
+  writedata(0xC1); 
+  writedata(0x48); 
+  writedata(0x08); 
+  writedata(0x0F); 
+  writedata(0x0C); 
+  writedata(0x31); 
+  writedata(0x36); 
+  writedata(0x0F); 
+
+  writecommand(ILI9340_SLPOUT);    //Exit Sleep 
+  _delay_ms(120);     
+  writecommand(ILI9340_DISPON);    //Display on 
+       setRotation(3);    
+  _delay_ms(500);
+  fillScreen(ILI9340_WHITE);
+  _delay_ms(500);
 }
-
-void lcdSetRefVolt(uint8_t val)
-{
-	LcdLock = 1 ;						// Lock LCD data lines
-  lcdSendCtl(0x81);
-  lcdSendCtl(val);
-	LcdLock = 0 ;						// Free LCD data lines
-}
-
-volatile uint8_t LcdLock ;
-//volatile uint8_t LcdTrims ;
-//uint8_t LcdTrimSwapped ;
-
-
-void refreshDiplay()
-{
-  uint8_t *p=displayBuf;
-
-	LcdLock = 1 ;						// Lock LCD data lines
-
-  for(uint8_t y=0; y < 8; y++) {
-    lcdSendCtl(0xC0); //
-    lcdSendCtl(0x40); //column addr 0
-    lcdSendCtl( y | 0xB8); //page addr y
-
-    for(uint8_t x=0; x<128; x++)
-    {
-      Hpos = x & 64 ;
-      lcdSendDat(*p);
-      p++;
-    }
-//    PORTA = 0xFF;  // Outputs high/pullups enabled
-  }
-	LcdLock = 0 ;						// Free LCD data lines
-}
-#endif
-
-#endif  // LCD_OTHER
-
-
